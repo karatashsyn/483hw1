@@ -38,8 +38,8 @@
       ]
     },
     "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/contracts/MyGov.sol": {
-      "lastModificationDate": 1744848039926,
-      "contentHash": "8e2746f97fe4b5278d240f0f2ee51fa8",
+      "lastModificationDate": 1744932774089,
+      "contentHash": "76d945d776e79791a8f6394b541d7eb2",
       "sourceName": "contracts/MyGov.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -75,44 +75,6 @@
       "artifacts": [
         "ITLToken",
         "MyGov"
-      ]
-    },
-    "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
-      "lastModificationDate": 1744835489771,
-      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
-      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
-      "solcConfig": {
-        "version": "0.8.28",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/Context.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Ownable"
       ]
     },
     "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
@@ -154,6 +116,44 @@
       ],
       "artifacts": [
         "ERC20"
+      ]
+    },
+    "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1744835489771,
+      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Ownable"
       ]
     },
     "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/node_modules/@openzeppelin/contracts/utils/Context.sol": {
@@ -305,7 +305,7 @@
       ]
     },
     "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/contracts/TLToken.sol": {
-      "lastModificationDate": 1744836056844,
+      "lastModificationDate": 1744926502875,
       "contentHash": "a545e0b807592bcc34d2774630c4a3f1",
       "sourceName": "contracts/TLToken.sol",
       "solcConfig": {

@@ -79,9 +79,7 @@ contract MyGov is ERC20, Ownable {
             break;
         }
     }
-    uint userBalance = balanceOf(user);
-    uint userBalanceAfterTransfer = userBalance - amountTransferring;
-    if (userBalanceAfterTransfer <= 0 && (hasVotedNonExpired || hasDelegatedNonExpired)) {
+    if (amountTransferring > balanceOf(user) && (hasVotedNonExpired || hasDelegatedNonExpired)) {
         return true;
     }
     return false;
@@ -93,11 +91,18 @@ contract MyGov is ERC20, Ownable {
     if(amount > 1e18) {
         isMember[to] = true;
     }
+    uint senderBalance = balanceOf(msg.sender);
+    require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+
     if(balanceOf(msg.sender)- amount < 1e18) {
         isMember[msg.sender] = false;
     }
     return super.transfer(to, amount);
   }
+
+  function testFund(address to, uint amount) external onlyOwner {
+    _transfer(address(this), to, amount);
+}
 
   function isContractMember(address user) public view returns (bool) {
     return isMember[user];
@@ -116,7 +121,8 @@ contract MyGov is ERC20, Ownable {
     }
 
     function donateMyGovToken(uint amount) external {
-        require(balanceOf(msg.sender) >= amount, "Not enough MGOV tokens for donation");
+        uint senderBalance = balanceOf(msg.sender);
+        require(senderBalance >= amount, "Not enough MGOV tokens for donation");
         require(!willViolateProposal(msg.sender, amount), "Since this transfer ends your membership due to balance and you have unfinished voting, process is cancelled.");
         if(balanceOf(msg.sender) - amount < 1e18) {
             isMember[msg.sender] = false;
