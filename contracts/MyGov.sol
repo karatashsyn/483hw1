@@ -86,9 +86,15 @@ contract MyGov is ERC20, Ownable {
     return false;
   }
 
-  //We are overriding the transfer function of the ERC20 contract for checking if the transfers will violate the proposal.
+  // We are overriding the transfer function of the ERC20 contract for checking if the transfers will violate the proposal.
   function transfer(address to, uint amount) public override returns (bool) {
-    require(!willViolateProposal(msg.sender, amount), "Transfer violates proposal");
+    require(!willViolateProposal(msg.sender, amount), "Since this transfer ends your membership due to balance and you have unfinished voting, process is cancelled.");
+    if(amount > 1e18) {
+        isMember[to] = true;
+    }
+    if(balanceOf(msg.sender)- amount < 1e18) {
+        isMember[msg.sender] = false;
+    }
     return super.transfer(to, amount);
   }
 
@@ -100,6 +106,7 @@ contract MyGov is ERC20, Ownable {
     function faucet() external {
         require(!faucetClaimed[msg.sender], "Already claimed");
         _transfer(address(this), msg.sender, 1e18);
+        isMember[msg.sender] = true;
         faucetClaimed[msg.sender] = true;
     }
 
@@ -109,6 +116,10 @@ contract MyGov is ERC20, Ownable {
 
     function donateMyGovToken(uint amount) external {
         require(balanceOf(msg.sender) >= amount, "Not enough MGOV tokens for donation");
+        require(!willViolateProposal(msg.sender, amount), "Since this transfer ends your membership due to balance and you have unfinished voting, process is cancelled.");
+        if(balanceOf(msg.sender) - amount < 1e18) {
+            isMember[msg.sender] = false;
+        }
         _transfer(msg.sender, address(this), amount);
     }
 
@@ -123,10 +134,13 @@ contract MyGov is ERC20, Ownable {
 
     // Ensuring sender has enough MyGov tokens
     require(balanceOf(msg.sender) >= MGOV_COST, "At least 2 MGOV tokens required");
-
+    require(!willViolateProposal(msg.sender, MGOV_COST), "Since this transfer ends your membership due to balance and you have unfinished voting, process is cancelled.");
     // Ensuring sender has enough TL tokens
     require(tlToken.transferFrom(msg.sender, address(this), TL_COST), "At least 1000 TL tokens required.");
 
+    if(balanceOf(msg.sender)- MGOV_COST < 1e18) {
+        isMember[msg.sender] = false;
+    }
     // 3. Transfer MyGov tokens from sender to contract
     _transfer(msg.sender, address(this), MGOV_COST);
 
@@ -166,7 +180,11 @@ contract MyGov is ERC20, Ownable {
         // Ensuring sender has enough MyGov tokens
         require(balanceOf(msg.sender) >= 5e18, "5 MGOV tokens required");
         // Ensuring sender has enough TL tokens
+        require(!willViolateProposal(msg.sender, 5e18), "Since this transfer ends your membership due to balance and you have unfinished voting, process is cancelled.");
         require(tlToken.transferFrom(msg.sender, address(this), 4000e18), "4000 TL tokens required.");
+        if(balanceOf(msg.sender) - 5e18 < 1e18) {
+            isMember[msg.sender] = false;
+        }
         _transfer(msg.sender, address(this), 5e18);
         proposals.push(Proposal(weburl, votedeadline, paymentamounts, payschedule, msg.sender, 0, false, 0, 0));
         // Returning project id.
@@ -214,8 +232,6 @@ contract MyGov is ERC20, Ownable {
         p.funded = true;
         p.reservedTime = block.timestamp;
     }
-
-
 
     function withdrawProjectTLPayment(uint projectid) external {
         Proposal storage p = proposals[projectid];

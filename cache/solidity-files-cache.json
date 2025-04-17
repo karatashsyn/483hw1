@@ -38,8 +38,8 @@
       ]
     },
     "/Users/huseyinkaratas/Desktop/School/CMPE483/hw1/contracts/MyGov.sol": {
-      "lastModificationDate": 1744836201994,
-      "contentHash": "5b5258dae169ab3992ae8940fd2b42e8",
+      "lastModificationDate": 1744848039926,
+      "contentHash": "8e2746f97fe4b5278d240f0f2ee51fa8",
       "sourceName": "contracts/MyGov.sol",
       "solcConfig": {
         "version": "0.8.28",
