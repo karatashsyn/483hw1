@@ -42,12 +42,13 @@ contract MyGov is ERC20, Ownable {
     Survey[] public surveys;
     Proposal[] public proposals;
 
-    mapping(uint => mapping(address => bool)) public hasVoted;
+    mapping(uint => mapping(address => bool)) public hasVoted; //projectID => (user => has voted for project proposal)
+    // Extra vote rights from other members' delegations.
+    mapping(uint => mapping(address => uint)) public extraVotes;
     mapping(uint => mapping(address => bool)) public hasDelegated;
-    mapping(uint => mapping(address => bool)) public hasPaid;
+    mapping(uint => uint) public paymentVotes; //projectID => number of YES votes
+    mapping(uint => mapping(address => bool)) public hasVotedForPayment; //projectID => user => has voted for payment
 
-    mapping(uint => mapping(address => bool)) public hasVotedForPayment;
-    mapping(uint => uint) public paymentVotes; // projectID => number of YES votes
     mapping(address => bool) public isMember;
 
     // Initial owner is the contract deployer, so Ownable(msg.sender) is used
@@ -80,7 +81,7 @@ contract MyGov is ERC20, Ownable {
     }
     uint userBalance = balanceOf(user);
     uint userBalanceAfterTransfer = userBalance - amountTransferring;
-    if (userBalanceAfterTransfer < 1e18 && (hasVotedNonExpired || hasDelegatedNonExpired)) {
+    if (userBalanceAfterTransfer <= 0 && (hasVotedNonExpired || hasDelegatedNonExpired)) {
         return true;
     }
     return false;
@@ -193,16 +194,25 @@ contract MyGov is ERC20, Ownable {
 
     function voteForProjectProposal(uint projectid, bool choice) external {
         require(isContractMember(msg.sender), "Only members can vote");
-        require(!hasVoted[projectid][msg.sender], "Already voted");
+        require(!hasVoted[projectid][msg.sender] || extraVotes[projectid][msg.sender] > 0 , "You have no votes left.");
+        // If already funded, no need to vote
+        require(!proposals[projectid].funded, "Already funded");
         require(block.timestamp < proposals[projectid].votedeadline, "Expired");
+
+        if(hasVoted[projectid][msg.sender]) {
+            extraVotes[projectid][msg.sender] = extraVotes[projectid][msg.sender] - 1;
+        }
         if (choice) proposals[projectid].yesVotes++;
+
         hasVoted[projectid][msg.sender] = true;
     }
 
     function voteForProjectPayment(uint projectid, bool choice) public {
     require(isContractMember(msg.sender), "Only members can vote");
     require(!hasVotedForPayment[projectid][msg.sender], "Already voted for this payment");
-
+    require(block.timestamp < proposals[projectid].votedeadline, "Expired");
+    require(proposals[projectid].funded, "Project not funded");
+    require(proposals[projectid].lastPaidIndex < proposals[projectid].paySchedule.length, "All payments made");
     hasVotedForPayment[projectid][msg.sender] = true;
 
     if (choice) {
@@ -214,8 +224,9 @@ contract MyGov is ERC20, Ownable {
         require(!hasVoted[projectid][msg.sender], "Already voted");
         require(!hasDelegated[projectid][msg.sender], "Already delegated");
         require(isContractMember(memberaddr), "You cannot delegate to non-member");
-        proposals[projectid].yesVotes++;
         hasDelegated[projectid][msg.sender] = true;
+        // Increasing the extra votes of the member to whom the vote is delegated
+        extraVotes[projectid][memberaddr]++;
     }
 
     function reserveProjectGrant(uint projectid) external {
@@ -239,10 +250,14 @@ contract MyGov is ERC20, Ownable {
         require(p.lastPaidIndex < p.paySchedule.length, "All paid");
         require(block.timestamp >= p.reservedTime + p.paySchedule[p.lastPaidIndex], "Not due yet");
         require(paymentVotes[projectid] * 100 >= getMemberCount(), "Not enough votes for payment");
-        require(p.yesVotes * 100 >= getMemberCount(), "Not enough votes for payment");
-
         tlToken.transfer(p.owner, p.paymentAmounts[p.lastPaidIndex]);
         p.lastPaidIndex++;
+        paymentVotes[projectid] = 0;
+        for (uint i = 0; i < proposals.length; i++) {
+            if (hasVotedForPayment[projectid][msg.sender]) {
+                hasVotedForPayment[projectid][msg.sender] = false;
+            }
+        }
     }
 
     function getSurveyResults(uint surveyid) external view returns (uint, uint[] memory) {
@@ -306,5 +321,4 @@ contract MyGov is ERC20, Ownable {
         return count;
     }
 
- 
 }
