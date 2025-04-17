@@ -10,18 +10,18 @@ interface ITLToken {
     function balanceOf(address account) external view returns (uint);
 }
 
+// Inheriting from ERC20 so that our contract provides the standard ERC20 functionalities
 contract MyGov is ERC20, Ownable {
     ITLToken public tlToken;
 
     uint public constant MAX_SUPPLY = 10_000_000 * 1e18;
     mapping(address => bool) public faucetClaimed;
-    mapping(address => bool) public isMember;
 
     struct Survey {
         string weburl;
-        uint deadline;
-        uint numChoices;
-        uint atmostChoice;
+        uint surveydeadline;
+        uint numchoices;
+        uint atmostchoices;
         address owner;
         uint[] results;
         uint takerCount;
@@ -29,7 +29,7 @@ contract MyGov is ERC20, Ownable {
 
     struct Proposal {
         string weburl;
-        uint voteDeadline;
+        uint votedeadline;
         uint[] paymentAmounts;
         uint[] paySchedule;
         address owner;
@@ -46,78 +46,164 @@ contract MyGov is ERC20, Ownable {
     mapping(uint => mapping(address => bool)) public hasDelegated;
     mapping(uint => mapping(address => bool)) public hasPaid;
 
-    // Initial owner is the contract deployer
+    mapping(uint => mapping(address => bool)) public hasVotedForPayment;
+    mapping(uint => uint) public paymentVotes; // projectID => number of YES votes
+    mapping(address => bool) public isMember;
+
+    // Initial owner is the contract deployer, so Ownable(msg.sender) is used
     constructor(address _tlToken) ERC20("MyGov", "MGOV") Ownable(msg.sender) {
         tlToken = ITLToken(_tlToken);
         _mint(address(this), MAX_SUPPLY);
     }
 
+    
+  
+  // A helper function for the 12th point of the project description  
+  // Checking if user has voted a propoposal that is not expired yet.
+  // If this is the case and the user is transferring an amount that will make their balance less than 1 MGOV,
+  // then the function will return true, indicating that the transfer will violate the proposal.
+  // create a variable boolean called hasVotedNonExpired
+  function willViolateProposal(address user, uint amountTransferring) internal view returns (bool) {
+    bool hasVotedNonExpired = false;
+    bool hasDelegatedNonExpired = false;
+    for (uint i = 0; i < proposals.length; i++) {
+        if (block.timestamp < proposals[i].votedeadline && hasVoted[i][user]) {
+            hasVotedNonExpired = true;
+            break;
+        }
+    }
+    for (uint i = 0; i < proposals.length; i++) {
+        if (block.timestamp < proposals[i].votedeadline && hasDelegated[i][user]) {
+            hasDelegatedNonExpired = true;
+            break;
+        }
+    }
+    uint userBalance = balanceOf(user);
+    uint userBalanceAfterTransfer = userBalance - amountTransferring;
+    if (userBalanceAfterTransfer < 1e18 && (hasVotedNonExpired || hasDelegatedNonExpired)) {
+        return true;
+    }
+    return false;
+  }
+
+  //We are overriding the transfer function of the ERC20 contract for checking if the transfers will violate the proposal.
+  function transfer(address to, uint amount) public override returns (bool) {
+    require(!willViolateProposal(msg.sender, amount), "Transfer violates proposal");
+    return super.transfer(to, amount);
+  }
+
+  function isContractMember(address user) public view returns (bool) {
+    return isMember[user];
+  }
+ 
+    // A faucet function to distribute MyGov tokens to members that have not claimed yet
     function faucet() external {
         require(!faucetClaimed[msg.sender], "Already claimed");
         _transfer(address(this), msg.sender, 1e18);
         faucetClaimed[msg.sender] = true;
-        isMember[msg.sender] = true;
     }
 
     function donateTLToken(uint amount) external {
-        require(tlToken.transferFrom(msg.sender, address(this), amount), "Failed");
+        require(tlToken.transferFrom(msg.sender, address(this), amount), "Not enough TL tokens for donation");
     }
 
     function donateMyGovToken(uint amount) external {
+        require(balanceOf(msg.sender) >= amount, "Not enough MGOV tokens for donation");
         _transfer(msg.sender, address(this), amount);
     }
 
-    function submitSurvey(string calldata weburl, uint deadline, uint numChoices, uint atmostChoice)
-        external returns (uint)
-    {
-        require(balanceOf(msg.sender) >= 2e18, "Not enough MyGov tokens");
-        require(tlToken.transferFrom(msg.sender, address(this), 1000e18), "TL transfer failed");
-        _transfer(msg.sender, address(this), 2e18);
-        surveys.push(Survey(weburl, deadline, numChoices, atmostChoice, msg.sender, new uint[](numChoices), 0));
-        return surveys.length - 1;
-    }
+  function submitSurvey(string calldata weburl, uint surveydeadline, uint numchoices, uint atmostchoices)
+    external returns (uint)
+{
+    uint MGOV_COST = 2e18;
+    uint TL_COST = 1000e18;
 
-    function takeSurvey(uint id, uint[] calldata choices) external {
-        Survey storage s = surveys[id];
-        require(block.timestamp < s.deadline, "Expired");
-        require(choices.length <= s.atmostChoice, "Too many choices");
+    // Sender should be a member for survey creation
+    require(isContractMember(msg.sender), "Only members can submit surveys");
+
+    // Ensuring sender has enough MyGov tokens
+    require(balanceOf(msg.sender) >= MGOV_COST, "At least 2 MGOV tokens required");
+
+    // Ensuring sender has enough TL tokens
+    require(tlToken.transferFrom(msg.sender, address(this), TL_COST), "At least 1000 TL tokens required.");
+
+    // 3. Transfer MyGov tokens from sender to contract
+    _transfer(msg.sender, address(this), MGOV_COST);
+
+    // 4. Add survey to storage
+    surveys.push(Survey(
+        weburl,
+        surveydeadline,
+        numchoices,
+        atmostchoices,
+        msg.sender,
+        new uint[](numchoices),
+        0
+    ));
+
+    // Return the index of the newly created survey, which is the id of the survey
+    return surveys.length - 1;
+}
+     
+    // Function for allowing anyone to join a survey with given id
+    function takeSurvey(uint surveyid, uint[] calldata choices) external {
+        require(isContractMember(msg.sender), "Only members can take surveys");
+        Survey storage s = surveys[surveyid];
+        require(block.timestamp < s.surveydeadline, "Expired");
+        require(choices.length <= s.atmostchoices, "Too many choices");
         for (uint i = 0; i < choices.length; i++) {
-            require(choices[i] < s.numChoices, "Invalid choice");
+            require(choices[i] < s.numchoices, "Invalid choice");
             s.results[choices[i]]++;
         }
         s.takerCount++;
     }
 
-    function submitProjectProposal(string calldata weburl, uint voteDeadline, uint[] calldata paymentAmounts, uint[] calldata paySchedule)
+    function submitProjectProposal(string calldata weburl, uint votedeadline, uint[] calldata paymentamounts, uint[] calldata payschedule)
         external returns (uint)
     {
-        require(balanceOf(msg.sender) >= 5e18, "Not enough MyGov tokens");
-        require(tlToken.transferFrom(msg.sender, address(this), 4000e18), "TL transfer failed");
+        // Sender should be a member for project proposal creation
+        require(isContractMember(msg.sender), "Only members can submit project proposals");
+        // Ensuring sender has enough MyGov tokens
+        require(balanceOf(msg.sender) >= 5e18, "5 MGOV tokens required");
+        // Ensuring sender has enough TL tokens
+        require(tlToken.transferFrom(msg.sender, address(this), 4000e18), "4000 TL tokens required.");
         _transfer(msg.sender, address(this), 5e18);
-        proposals.push(Proposal(weburl, voteDeadline, paymentAmounts, paySchedule, msg.sender, 0, false, 0, 0));
+        proposals.push(Proposal(weburl, votedeadline, paymentamounts, payschedule, msg.sender, 0, false, 0, 0));
+        // Returning project id.
         return proposals.length - 1;
     }
 
-    function voteForProjectProposal(uint id, bool choice) external {
-        require(isMember[msg.sender] && balanceOf(msg.sender) >= 1e18, "Not a valid member");
-        require(!hasVoted[id][msg.sender], "Already voted");
-        require(block.timestamp < proposals[id].voteDeadline, "Expired");
-        if (choice) proposals[id].yesVotes++;
-        hasVoted[id][msg.sender] = true;
+    function voteForProjectProposal(uint projectid, bool choice) external {
+        require(isContractMember(msg.sender), "Only members can vote");
+        require(!hasVoted[projectid][msg.sender], "Already voted");
+        require(block.timestamp < proposals[projectid].votedeadline, "Expired");
+        if (choice) proposals[projectid].yesVotes++;
+        hasVoted[projectid][msg.sender] = true;
     }
 
-    function delegateVoteTo(address member, uint id) external {
-        require(!hasVoted[id][msg.sender], "Already voted");
-        require(!hasDelegated[id][msg.sender], "Already delegated");
-        require(isMember[member], "Invalid member");
-        proposals[id].yesVotes++;
-        hasDelegated[id][msg.sender] = true;
+    function voteForProjectPayment(uint projectid, bool choice) public {
+    require(isContractMember(msg.sender), "Only members can vote");
+    require(!hasVotedForPayment[projectid][msg.sender], "Already voted for this payment");
+
+    hasVotedForPayment[projectid][msg.sender] = true;
+
+    if (choice) {
+        paymentVotes[projectid]++;
+    }
+}
+
+    function delegateVoteTo(address memberaddr, uint projectid) external {
+        require(!hasVoted[projectid][msg.sender], "Already voted");
+        require(!hasDelegated[projectid][msg.sender], "Already delegated");
+        require(isContractMember(memberaddr), "You cannot delegate to non-member");
+        proposals[projectid].yesVotes++;
+        hasDelegated[projectid][msg.sender] = true;
     }
 
-    function reserveProjectGrant(uint id) external {
-        Proposal storage p = proposals[id];
+    function reserveProjectGrant(uint projectid) external {
+        Proposal storage p = proposals[projectid];
         require(msg.sender == p.owner, "Not owner");
-        require(block.timestamp < p.voteDeadline, "Expired");
+        require(block.timestamp < p.votedeadline, "Expired");
         require(!p.funded, "Already funded");
         require(p.yesVotes * 10 >= getMemberCount(), "Not enough votes");
         uint total;
@@ -129,47 +215,50 @@ contract MyGov is ERC20, Ownable {
         p.reservedTime = block.timestamp;
     }
 
-    function withdrawProjectTLPayment(uint id) external {
-        Proposal storage p = proposals[id];
+
+
+    function withdrawProjectTLPayment(uint projectid) external {
+        Proposal storage p = proposals[projectid];
         require(p.funded && msg.sender == p.owner, "Unauthorized");
         require(p.lastPaidIndex < p.paySchedule.length, "All paid");
         require(block.timestamp >= p.reservedTime + p.paySchedule[p.lastPaidIndex], "Not due yet");
+        require(paymentVotes[projectid] * 100 >= getMemberCount(), "Not enough votes for payment");
         require(p.yesVotes * 100 >= getMemberCount(), "Not enough votes for payment");
 
         tlToken.transfer(p.owner, p.paymentAmounts[p.lastPaidIndex]);
         p.lastPaidIndex++;
     }
 
-    function getSurveyResults(uint id) external view returns (uint, uint[] memory) {
-        return (surveys[id].takerCount, surveys[id].results);
+    function getSurveyResults(uint surveyid) external view returns (uint, uint[] memory) {
+        return (surveys[surveyid].takerCount, surveys[surveyid].results);
     }
 
-    function getSurveyInfo(uint id) external view returns (string memory, uint, uint, uint) {
-        Survey memory s = surveys[id];
-        return (s.weburl, s.deadline, s.numChoices, s.atmostChoice);
+    function getSurveyInfo(uint surveyid) external view returns (string memory, uint, uint, uint) {
+        Survey memory s = surveys[surveyid];
+        return (s.weburl, s.surveydeadline, s.numchoices, s.atmostchoices);
     }
 
-    function getSurveyOwner(uint id) external view returns (address) {
-        return surveys[id].owner;
+    function getSurveyOwner(uint surveyid) external view returns (address) {
+        return surveys[surveyid].owner;
     }
 
-    function getIsProjectFunded(uint id) external view returns (bool) {
-        return proposals[id].funded;
+    function getIsProjectFunded(uint projectid) external view returns (bool) {
+        return proposals[projectid].funded;
     }
 
-    function getProjectNextTLPayment(uint id) external view returns (int) {
-        Proposal storage p = proposals[id];
+    function getProjectNextTLPayment(uint projectid) external view returns (int) {
+        Proposal storage p = proposals[projectid];
         if (p.lastPaidIndex >= p.paySchedule.length) return -1;
         return int(p.paySchedule[p.lastPaidIndex]);
     }
 
-    function getProjectOwner(uint id) external view returns (address) {
-        return proposals[id].owner;
+    function getProjectOwner(uint projectid) external view returns (address) {
+        return proposals[projectid].owner;
     }
 
-    function getProjectInfo(uint id) external view returns (string memory, uint, uint[] memory, uint[] memory) {
-        Proposal memory p = proposals[id];
-        return (p.weburl, p.voteDeadline, p.paymentAmounts, p.paySchedule);
+    function getProjectInfo(uint activityid) external view returns (string memory, uint, uint[] memory, uint[] memory) {
+        Proposal memory p = proposals[activityid];
+        return (p.weburl, p.votedeadline, p.paymentAmounts, p.paySchedule);
     }
 
     function getNoOfProjectProposals() external view returns (uint) {
@@ -182,8 +271,8 @@ contract MyGov is ERC20, Ownable {
         }
     }
 
-    function getTLReceivedByProject(uint id) external view returns (uint total) {
-        Proposal storage p = proposals[id];
+    function getTLReceivedByProject(uint projectid) external view returns (uint total) {
+        Proposal storage p = proposals[projectid];
         for (uint i = 0; i < p.lastPaidIndex; i++) {
             total += p.paymentAmounts[i];
         }
@@ -193,11 +282,13 @@ contract MyGov is ERC20, Ownable {
         return surveys.length;
     }
 
-    function getMemberCount() internal view returns (uint count) {
-        for (uint i = 0; i < 300; i++) {
-            // Simulation: if(address(uint160(i)) is member)
-            // Not accurate, real implementation would use a dynamic list of addresses
+    function getMemberCount() internal view returns (uint) {
+        uint count = 0;
+        for (uint i = 0; i < surveys.length; i++) {
+            if (isContractMember(surveys[i].owner)) count++;
         }
-        return 300; // Placeholder for testing 300 addresses
+        return count;
     }
+
+ 
 }
