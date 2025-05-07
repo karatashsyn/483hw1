@@ -2,6 +2,7 @@ const { expect } = require("chai");
 const hre = require("hardhat");
 
 const NUM_MEMBERS = 300;
+// By changing that number manually, we can test different num of users
 
 describe("MyGov Full Test", function () {
     let tlToken, myGov, owner, members;
