@@ -1,81 +1,182 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibStorage} from "../libraries/LibStorage.sol";
+import {LibDiamond} from "../libraries/LibDiamond.sol";
 
 /**
  * @title ERC20Facet
- * @notice ERC20 implementation using OpenZeppelin, adapted for Diamond.
+ * @notice Diamond-compatible ERC20 token logic for MGOV with voting constraints.
  */
-contract ERC20Facet is ERC20 {
+contract ERC20Facet {
     using LibStorage for LibStorage.AppStorage;
 
+    // Constants
+    string public constant name = "MyGov";
+    string public constant symbol = "MGOV";
+    uint8 public constant decimals = 18;
     uint256 public constant MAX_SUPPLY = 10_000_000 * 1e18;
 
-    constructor() ERC20("MyGov", "MGOV") {
-        // This constructor won’t run when used in a Diamond
+    // ------------------------------------------------------------------------
+    // ERC20 View Functions
+    // ------------------------------------------------------------------------
+
+    function totalSupply() external view returns (uint256) {
+        return LibStorage.diamondStorage().totalSupply;
     }
 
-    /// @notice Should be called via DiamondInit
+    function balanceOf(address account) external view returns (uint256) {
+        return LibStorage.diamondStorage().balances[account];
+    }
+
+    function allowance(address owner, address spender) external view returns (uint256) {
+        return LibStorage.diamondStorage().allowances[owner][spender];
+    }
+
+    // ------------------------------------------------------------------------
+    // ERC20 External Functions
+    // ------------------------------------------------------------------------
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(!_willViolateProposal(msg.sender, amount), "Voting constraint violated");
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+        s.allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+
+        uint256 currentAllowance = s.allowances[from][msg.sender];
+        require(currentAllowance >= amount, "ERC20: insufficient allowance");
+
+        s.allowances[from][msg.sender] = currentAllowance - amount;
+        require(!_willViolateProposal(from, amount), "Voting constraint violated");
+
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    // ------------------------------------------------------------------------
+    // Admin Minting and Burning
+    // ------------------------------------------------------------------------
+
+    /// @notice Mints tokens to the given address. Only Diamond owner may call.
+    function mint(address to, uint256 amount) external {
+        require(msg.sender == LibDiamond.contractOwner(), "Only owner");
+        _mint(to, amount);
+    }
+
+    /// @notice Mints full supply to Diamond contract (for init)
     function initializeERC20Facet() external {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
         require(!s.erc20Initialized, "Already initialized");
+
         _mint(address(this), MAX_SUPPLY);
         s.erc20Initialized = true;
     }
-    
-    /// @dev ERC20 transfer with voting rule enforcement
-    function transfer(address to, uint256 amount) public override returns (bool) {
-        require(!_willViolateProposal(msg.sender, amount), "Voting constraint: balance too low");
-        return super.transfer(to, amount);
+
+    /// @notice Burns tokens from sender
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
     }
 
-    /// @dev ERC20 transferFrom with voting rule enforcement
-    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
-        require(!_willViolateProposal(from, amount), "Voting constraint: balance too low");
-        return super.transferFrom(from, to, amount);
+    // ------------------------------------------------------------------------
+    // Internal Transfers and Logic
+    // ------------------------------------------------------------------------
+
+    function _transfer(address from, address to, uint256 amount) internal {
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+
+        require(to != address(0), "ERC20: transfer to zero address");
+        require(s.balances[from] >= amount, "ERC20: insufficient balance");
+
+        s.balances[from] -= amount;
+        s.balances[to] += amount;
+
+        // Update membership
+        if (s.balances[to] >= 1e18) s.isMember[to] = true;
+        if (s.balances[from] < 1e18) s.isMember[from] = false;
+
+        emit Transfer(from, to, amount);
     }
 
-    /// @notice Transfers from contract balance (used by faucet)
+    function _mint(address to, uint256 amount) internal {
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+
+        require(to != address(0), "ERC20: mint to zero address");
+        require(s.totalSupply + amount <= MAX_SUPPLY, "Exceeds max supply");
+
+        s.totalSupply += amount;
+        s.balances[to] += amount;
+
+        emit Transfer(address(0), to, amount);
+    }
+
+    function _burn(address from, uint256 amount) internal {
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+
+        require(from != address(0), "ERC20: burn from zero address");
+        require(s.balances[from] >= amount, "ERC20: insufficient balance");
+
+        s.balances[from] -= amount;
+        s.totalSupply -= amount;
+
+        emit Transfer(from, address(0), amount);
+    }
+
+    /// @notice Used by faucet facet to distribute tokens from Diamond treasury
     function transferFaucetToken(address to, uint256 amount) external {
-        require(msg.sender == address(this), "Only callable via delegatecall");
+        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
+        require(msg.sender == address(this), "Internal use only");
 
-        uint256 contractBalance = balanceOf(address(this));
-        require(contractBalance >= amount, "Insufficient faucet balance");
+        require(s.balances[address(this)] >= amount, "Insufficient faucet balance");
+        s.balances[address(this)] -= amount;
+        s.balances[to] += amount;
 
-        _transfer(address(this), to, amount);
+        emit Transfer(address(this), to, amount);
     }
 
-    /// @dev Voting balance rule
     function _willViolateProposal(address user, uint256 amount) internal view returns (bool) {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
 
-        bool hasVotedNonExpired = false;
-        bool hasDelegatedNonExpired = false;
+        bool voted = false;
+        bool delegated = false;
 
         for (uint256 i = 0; i < s.proposals.length; i++) {
             if (block.timestamp < s.proposals[i].votedeadline && s.hasVoted[i][user]) {
-                hasVotedNonExpired = true;
+                voted = true;
                 break;
             }
         }
 
         for (uint256 i = 0; i < s.proposals.length; i++) {
             if (block.timestamp < s.proposals[i].votedeadline && s.hasDelegated[i][user]) {
-                hasDelegatedNonExpired = true;
+                delegated = true;
                 break;
             }
         }
 
-        uint256 balance = balanceOf(user);
+        uint256 balance = s.balances[user];
         if (amount > balance || balance - amount < 1e18) {
-            if (hasVotedNonExpired || hasDelegatedNonExpired) {
+            if (voted || delegated) {
                 return true;
             }
         }
 
         return false;
     }
+
+    // ------------------------------------------------------------------------
+    // Events
+    // ------------------------------------------------------------------------
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
