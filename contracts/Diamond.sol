@@ -11,17 +11,14 @@ contract Diamond {
     constructor(address _contractOwner, address _diamondCutFacet) {
         // Set the contract owner in storage
         LibDiamond.setContractOwner(_contractOwner);
-
         // ✅ Declare and assign functionSelectors array (length = 1)
-        bytes4 ;
-
-        functionSelectors[0] = bytes4(
-            keccak256("diamondCut((address,uint8,bytes4[])[],address,bytes)")
-        );
+        
+        
+        bytes4[] memory functionSelectors = new bytes4[](1);
+        functionSelectors[0] = bytes4(keccak256("diamondCut((address,uint8,bytes4[])[],address,bytes)"));
 
         // ✅ Declare and assign FacetCut array (length = 1)
-        LibDiamond.FacetCut ;
-
+        LibDiamond.FacetCut[] memory cut = new LibDiamond.FacetCut[](1);
         cut[0] = LibDiamond.FacetCut({
             facetAddress: _diamondCutFacet,
             action: LibDiamond.FacetCutAction.Add,

@@ -22,7 +22,7 @@ contract DiamondLoupeFacet {
     }
 
     function facetFunctionSelectors(address _facet) external view returns (bytes4[] memory) {
-        return LibDiamond.diamondStorage().facetFunctionSelectors[_facet];
+        return LibDiamond.diamondStorage().facetFunctionSelectors[_facet].functionSelectors;
     }
 
     function facetAddresses() external view returns (address[] memory) {
