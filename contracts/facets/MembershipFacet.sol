@@ -10,7 +10,7 @@ import {LibStorage} from "../libraries/LibStorage.sol";
 contract MembershipFacet {
     using LibStorage for LibStorage.AppStorage;
 
-    uint256 internal constant ONE_MGOV = 1e18;
+
 
     /// @notice Checks if an address is an active contract member
     /// @param user Address to check
@@ -19,13 +19,15 @@ contract MembershipFacet {
         return LibStorage.diamondStorage().isMember[user];
     }
 
-    /// @notice Computes how many members are active (based on survey owners)
+    /// @notice Computes how many members are active
     /// @dev This is a proxy for tracking active members
     /// @return count of active survey owners who are members
     function getMemberCount() external view returns (uint256 count) {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
-        for (uint256 i = 0; i < s.surveys.length; i++) {
-            if (s.isMember[s.surveys[i].owner]) {
+
+        for (uint256 i = 0; i < s.memberList.length; i++) {
+            address user = s.memberList[i];
+            if (s.balances[user] >= 1e18) {
                 count++;
             }
         }
@@ -72,13 +74,13 @@ contract MembershipFacet {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
 
         // If amount > 1 MGOV, recipient becomes member
-        if (amount >= ONE_MGOV) {
+        if (amount >= 1e18) {
             s.isMember[recipient] = true;
         }
 
         // If balance < 1 MGOV, sender loses membership
         uint256 newSenderBalance = address(this).balance; // Replace with actual balanceOf(sender)
-        if (newSenderBalance < ONE_MGOV) {
+        if (newSenderBalance < 1e18) {
             s.isMember[sender] = false;
         }
     }

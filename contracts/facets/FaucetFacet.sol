@@ -22,7 +22,10 @@ contract FaucetFacet {
         s.faucetClaimed[msg.sender] = true;
 
         // Set user as member
-        s.isMember[msg.sender] = true;
+        if (!s.isMember[msg.sender]) {
+            s.isMember[msg.sender] = true;
+            s.memberList.push(msg.sender); // ✅ track members
+        }
 
         // Transfer MGOV tokens from contract to user
         ERC20Facet(address(this)).transferFaucetToken(msg.sender, FAUCET_AMOUNT);

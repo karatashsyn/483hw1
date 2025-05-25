@@ -38,6 +38,7 @@ library LibStorage {
         mapping(address => mapping(address => uint256)) allowances;
 
         // Membership
+        address[] memberList;
         mapping(address => bool) isMember;
 
         // Faucet tracking
