@@ -33,6 +33,9 @@ library LibStorage {
         bool initialized;
         bool erc20Initialized;
         ITLToken tlToken;
+        uint256 totalSupply;
+        mapping(address => uint256) balances;
+        mapping(address => mapping(address => uint256)) allowances;
 
         // Membership
         mapping(address => bool) isMember;
