@@ -1,5 +1,6 @@
 require("dotenv").config();
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-abi-exporter");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -21,11 +22,12 @@ module.exports = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
+
   abiExporter: {
     path: "./frontend/src/abi",
     runOnCompile: true,
     clear: true,
-    flat: true,
+    flat: false,
     spacing: 2,
     only: [
       "ERC20Facet",
