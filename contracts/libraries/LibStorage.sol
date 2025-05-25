@@ -31,7 +31,7 @@ library LibStorage {
     struct AppStorage {
         address contractOwner;
         bool initialized;
-
+        bool erc20Initialized;
         ITLToken tlToken;
 
         // Membership
