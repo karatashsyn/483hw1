@@ -36,11 +36,13 @@ contract SurveyFacet {
         require(!_willViolateProposal(msg.sender, MGOV_COST), "Transfer violates voting requirement");
 
         // Check TLToken balance and transfer
-        require(s.tlToken.transferFrom(msg.sender, address(this), TL_COST), "TL token transfer failed");
+        require(s.tlToken.transferFrom(msg.sender, address(this), TL_COST), "1000 TL tokens required");
 
         // Deduct MGOV cost
-        _decreaseBalance(msg.sender, MGOV_COST);
-        _increaseBalance(address(this), MGOV_COST);
+        require(
+            ERC20Facet(address(this)).transferFrom(msg.sender, address(this), MGOV_COST),
+            "Transfer failed"
+        );
 
         // Update membership if dropping below 1 MGOV
         if (_getBalance(msg.sender) < ONE_MGOV) {
@@ -125,17 +127,9 @@ contract SurveyFacet {
     // ========================
 
     function _getBalance(address user) internal view returns (uint256) {
-        // You can alternatively move this into LibToken if split further
         return ERC20Facet(address(this)).balanceOf(user);
     }
 
-    function _increaseBalance(address user, uint256 amount) internal {
-        ERC20Facet(address(this)).mint(user, amount);
-    }
-
-    function _decreaseBalance(address user, uint256 amount) internal {
-        ERC20Facet(address(this)).burn(user, amount);
-    }
 
     function _willViolateProposal(address user, uint256 amount) internal view returns (bool) {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
@@ -168,6 +162,6 @@ contract SurveyFacet {
 
 interface ERC20Facet {
     function balanceOf(address account) external view returns (uint256);
-    function mint(address to, uint256 amount) external;
-    function burn(address from, uint256 amount) external;
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
 }

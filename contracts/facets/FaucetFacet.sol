@@ -24,7 +24,7 @@ contract FaucetFacet {
         // Set user as member
         if (!s.isMember[msg.sender]) {
             s.isMember[msg.sender] = true;
-            s.memberList.push(msg.sender); // ✅ track members
+            s.memberList.push(msg.sender); //  track members
         }
 
         // Transfer MGOV tokens from contract to user

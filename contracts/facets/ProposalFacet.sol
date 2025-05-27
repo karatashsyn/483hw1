@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {LibStorage} from "../libraries/LibStorage.sol";
 
+
 /**
  * @title ProposalFacet
  * @notice Manages project proposals, voting, delegation, payment approval, and TL disbursements.
@@ -38,8 +39,11 @@ contract ProposalFacet {
         require(s.tlToken.transferFrom(msg.sender, address(this), TL_PROPOSAL_COST), "4000 TL tokens required");
 
         // MGOV deduction
-        ERC20Facet(address(this)).burn(msg.sender, MGOV_PROPOSAL_COST);
-        ERC20Facet(address(this)).mint(address(this), MGOV_PROPOSAL_COST);
+        require(
+            ERC20Facet(address(this)).transferFrom(msg.sender, address(this), MGOV_PROPOSAL_COST),
+            "Transfer failed"
+        );
+        
 
         if (balance - MGOV_PROPOSAL_COST < ONE_MGOV) {
             s.isMember[msg.sender] = false;
@@ -105,7 +109,7 @@ contract ProposalFacet {
         require(block.timestamp < p.votedeadline, "Proposal expired");
         require(!p.funded, "Already funded");
 
-        uint256 memberCount = _getMemberCount();
+        uint256 memberCount = MembershipFacet(address(this)).getMemberCount();
         require(p.yesVotes * 10 >= memberCount, "Insufficient votes");
 
         uint256 total;
@@ -131,7 +135,7 @@ contract ProposalFacet {
         uint256 dueTime = p.reservedTime + p.paySchedule[p.lastPaidIndex];
         require(block.timestamp >= dueTime, "Payment not due");
 
-        uint256 memberCount = _getMemberCount();
+        uint256 memberCount = MembershipFacet(address(this)).getMemberCount();
         require(s.paymentVotes[projectId] * 100 >= memberCount, "Insufficient votes");
 
         s.tlToken.transfer(p.owner, p.paymentAmounts[p.lastPaidIndex]);
@@ -214,14 +218,6 @@ contract ProposalFacet {
     // Internal utilities
     // ============================
 
-    function _getMemberCount() internal view returns (uint256 count) {
-        LibStorage.AppStorage storage s = LibStorage.diamondStorage();
-        for (uint256 i = 0; i < s.surveys.length; i++) {
-            if (s.isMember[s.surveys[i].owner]) {
-                count++;
-            }
-        }
-    }
 
     function _willViolateProposal(address user, uint256 amount) internal view returns (bool) {
         LibStorage.AppStorage storage s = LibStorage.diamondStorage();
@@ -253,6 +249,9 @@ contract ProposalFacet {
 
 interface ERC20Facet {
     function balanceOf(address account) external view returns (uint256);
-    function mint(address to, uint256 amount) external;
-    function burn(address from, uint256 amount) external;
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+}
+interface MembershipFacet {
+    function getMemberCount() external view returns (uint256 count);
 }

@@ -18,7 +18,7 @@ contract DonationFacet {
         require(amount > 0, "Amount must be greater than 0");
         require(
             s.tlToken.transferFrom(msg.sender, address(this), amount),
-            "TL transfer failed"
+            "Not enough TL tokens for donation"
         );
     }
 
@@ -43,9 +43,10 @@ contract DonationFacet {
             s.isMember[msg.sender] = false;
         }
 
-        // Transfer MGOV tokens to the treasury
-        ERC20Facet(address(this)).burn(msg.sender, amount);
-        ERC20Facet(address(this)).mint(address(this), amount);
+        require(
+            ERC20Facet(address(this)).transferFrom(msg.sender, address(this), amount),
+            "Transfer failed"
+        );
     }
 
     // ============================
@@ -83,6 +84,5 @@ contract DonationFacet {
 
 interface ERC20Facet {
     function balanceOf(address account) external view returns (uint256);
-    function mint(address to, uint256 amount) external;
-    function burn(address from, uint256 amount) external;
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }

@@ -88,7 +88,9 @@ async function main() {
   }
 
   console.log("Diamond initialized via diamondCut");
-
+  const tl1 = await ethers.getContractAt("TLToken", tlAddress, deployer);
+  await tl1.transferOwnership(diamondAddress);
+  console.log("Now TLToken.owner() =", await tl1.owner());
   // Final report
   console.log("\nDeployment Complete:");
   console.log("Diamond (MGOV):", diamondAddress);

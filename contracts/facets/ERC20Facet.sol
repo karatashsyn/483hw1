@@ -3,6 +3,8 @@ pragma solidity ^0.8.20;
 
 import {LibStorage} from "../libraries/LibStorage.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
+import { ITLToken } from "../interfaces/ITLToken.sol";
+
 
 /**
  * @title ERC20Facet
@@ -87,6 +89,14 @@ contract ERC20Facet {
         _burn(msg.sender, amount);
     }
 
+    function testMintBoth(address to, uint256 mgovAmount, uint256 tlAmount) external {
+        require(msg.sender == LibDiamond.contractOwner(), "Only owner");
+        _mint(to, mgovAmount);
+        // Mint TL via owner-only mint()
+        ITLToken tl = LibStorage.diamondStorage().tlToken;
+        tl.faucet(to, tlAmount);
+    }
+
     // ------------------------------------------------------------------------
     // Internal Transfers and Logic
     // ------------------------------------------------------------------------
@@ -112,8 +122,9 @@ contract ERC20Facet {
 
         require(to != address(0), "ERC20: mint to zero address");
         require(s.totalSupply + amount <= MAX_SUPPLY, "Exceeds max supply");
-
-        s.totalSupply += amount;
+        if(to != address(this)){
+            s.totalSupply += amount;
+        }
         s.balances[to] += amount;
 
         emit Transfer(address(0), to, amount);
