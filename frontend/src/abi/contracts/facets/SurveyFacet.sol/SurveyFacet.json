@@ -1,0 +1,144 @@
+[
+  {
+    "inputs": [],
+    "name": "getNoOfSurveys",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "surveyId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSurveyInfo",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "url",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "numchoices",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "atmostchoices",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "surveyId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSurveyOwner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "surveyId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSurveyResults",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "takers",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "results",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "weburl",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "surveydeadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "numchoices",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "atmostchoices",
+        "type": "uint256"
+      }
+    ],
+    "name": "submitSurvey",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "surveyId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "surveyId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "choices",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "takeSurvey",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

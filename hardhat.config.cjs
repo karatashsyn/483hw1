@@ -1,4 +1,6 @@
+require("dotenv").config();
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-abi-exporter");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -13,13 +15,28 @@ module.exports = {
   },
   networks: {
     sepolia: {
-      url: "https://sepolia.infura.io/v3/1d171a91871a403ea2511f63cc3445d9",
-      accounts: [
-        "37ac36a34c228cac652720a9a009cf9e1b1076e9e9d11de3993ece56aedbb02c",
-      ],
+      url: process.env.INFURA_URL,
+      accounts: [process.env.PRIVATE_KEY],
     },
   },
   etherscan: {
-    apiKey: "MGMT6RU3YMACAVQNUQ1H9BZMBNIH67J58G",
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
+
+  abiExporter: {
+    path: "./frontend/src/abi",
+    runOnCompile: true,
+    clear: true,
+    flat: false,
+    spacing: 2,
+    only: [
+      "ERC20Facet",
+      "MembershipFacet",
+      "SurveyFacet",
+      "ProposalFacet",
+      "FaucetFacet",
+      "DonationFacet",
+      "DiamondLoupeFacet"
+    ]
+  }
 };
