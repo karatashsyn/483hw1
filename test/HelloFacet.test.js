@@ -4,7 +4,7 @@ import { ZeroAddress } from "ethers";
 
 const { ethers } = hre;
 
-const diamondAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"; 
+const diamondAddress = "0x9047E04868684a352Eb48df4e1d8A013f8EDeBB6"; 
 
 function getSelectors(contract) {
   const selectors = [];
