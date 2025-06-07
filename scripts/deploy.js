@@ -110,7 +110,7 @@ function getSelectors(contract) {
     // fragment.selector returns the 4-byte sighash, e.g., "0xa9059cbb"
     const signature = fragment.format();
     if (signature !== "init(address)") {
-      // Your original filter condition
+
       selectors.push(fragment.selector);
     }
   });
